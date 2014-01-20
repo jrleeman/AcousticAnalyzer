@@ -37,6 +37,10 @@ class AppForm(QMainWindow):
         if path:
             self.canvas.print_figure(path,dpi=self.dpi)
             self.statusBar().showMessage('Saved to %s' %path, 2000)
+    
+    def on_loaded_list_change(self):
+        draw_waveform(self.loaded_list)
+        update_seismogram_meta()
             
     def draw_waveform(self,listname):
         self.stored_xlimits = self.ax1.get_xlim()
@@ -162,8 +166,8 @@ class AppForm(QMainWindow):
         meta_right_vbox.addWidget(self.seismogram_timestamp_label)
         # Set default labels
         self.seismogram_recnum_label.setText('Record Number: ')
-        self.seismogram_syncvoltage_label.setText('Sync Voltage: ')
-        self.seismogram_maxamplitude_label.setText('Maximum Amplitude: ')
+        self.seismogram_syncvoltage_label.setText('Sync Voltage [V]: ')
+        self.seismogram_maxamplitude_label.setText('Maximum Amplitude [V]: ')
         self.seismogram_timestamp_label.setText('Time Stamp: ')
         
                 
@@ -213,7 +217,7 @@ class AppForm(QMainWindow):
         self.force_clear_button = QPushButton("&Force Clear")
         self.connect(self.force_clear_button, SIGNAL('clicked()'), self.on_clear)
 
-        self.loaded_list.currentTextChanged.connect(self.draw_waveform)
+        self.loaded_list.currentTextChanged.connect(self.on_loaded_list_change)
         
         # Do layout with box sizers
         
@@ -378,13 +382,20 @@ class AppForm(QMainWindow):
         return self.experiment
         
     def update_experiment_meta(self):
-        string_date = self.experiment.date
-        self.exp_date_label.setText('Date: %s' %string_date)
+        self.exp_date_label.setText('Date: %s' %self.experiment.date)
         self.exp_recrate_label.setText('Recording Rate [MHz]: %.2f' %(self.experiment.record_rate/1e6))
         self.exp_pulserate_label.setText('Pulse Rate [pps]: %d' %self.experiment.trigger_rate)
         self.exp_posttrigrecs_label.setText('Post-Trigger Samples: %d' %self.experiment.post_trig_recs)
         self.exp_pretrigrecs_label.setText('Pre-Trigger Samples: %d' %self.experiment.pre_trig_recs)
         self.exp_totalrecs_label.setText('Total Samples: %d' %self.experiment.total_recs) 
+
+    def update_seismogram_meta(self):
+        seismogram = self.experiment.seismograms[str(self.loaded_list.currentItem().text())]
+        time_string = datetime.strptime(seismogam.timestamp, '%H:%M:%S')
+        self.seismogram_recnum_label.setText('Record Number: %d' seismogram.rec_number)
+        self.seismogram_syncvoltage_label.setText('Sync Voltage [V]: %.3f' %seismogram.sync_voltage)
+        self.seismogram_maxamplitude_label.setText('Maximum Amplitude [V]: %.3f' %seismogram.maxamp)
+        self.seismogram_timestamp_label.setText('Time Stamp: %s' %time_string)
 
 class Seismogram:
     """
