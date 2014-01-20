@@ -39,8 +39,8 @@ class AppForm(QMainWindow):
             self.statusBar().showMessage('Saved to %s' %path, 2000)
     
     def on_loaded_list_change(self):
-        draw_waveform(self.loaded_list)
-        update_seismogram_meta()
+        self.draw_waveform(self.loaded_list)
+        self.update_seismogram_meta()
             
     def draw_waveform(self,listname):
         self.stored_xlimits = self.ax1.get_xlim()
@@ -49,7 +49,7 @@ class AppForm(QMainWindow):
         self.ax1.set_xlabel(r'Time [$\mu s$]')
         self.ax1.set_ylabel(r'Amplitude [V]')
         self.ax1.grid(self.grid_cb.isChecked())
-        seismogram = self.experiment.seismograms[str(listname)]
+        seismogram = self.experiment.seismograms[str(self.loaded_list.currentItem().text())]
         self.ax1.plot(self.experiment.time,seismogram.amplitude,color='k',linewidth=1)
         
         if self.first_plot == True:
@@ -124,13 +124,8 @@ class AppForm(QMainWindow):
     def create_meta_box(self):
         ### META BOX
         # Make the boxes we'll use and do some initial setup
-        meta_left_vbox = QVBoxLayout()
-        meta_right_vbox = QVBoxLayout()
-        meta_hbox = QHBoxLayout()
-        meta_hbox.addLayout(meta_left_vbox)
-        meta_hbox.addSpacing(300)
-        meta_hbox.addLayout(meta_right_vbox)
-        meta_hbox.addSpacing(300)
+        meta_grid = QGridLayout()
+
         
         # Make the experiment meta label objects
         self.exp_date_label = QLabel(self)
@@ -140,12 +135,12 @@ class AppForm(QMainWindow):
         self.exp_posttrigrecs_label = QLabel(self)
         self.exp_totalrecs_label = QLabel(self)
         # Add them to the left vbox
-        meta_left_vbox.addWidget(self.exp_date_label)
-        meta_left_vbox.addWidget(self.exp_recrate_label)
-        meta_left_vbox.addWidget(self.exp_pulserate_label)
-        meta_left_vbox.addWidget(self.exp_pretrigrecs_label)
-        meta_left_vbox.addWidget(self.exp_posttrigrecs_label)
-        meta_left_vbox.addWidget(self.exp_totalrecs_label)
+        meta_grid.addWidget(self.exp_date_label,1,1)
+        meta_grid.addWidget(self.exp_recrate_label,2,1)
+        meta_grid.addWidget(self.exp_pulserate_label,3,1)
+        meta_grid.addWidget(self.exp_pretrigrecs_label,4,1)
+        meta_grid.addWidget(self.exp_posttrigrecs_label,5,1)
+        meta_grid.addWidget(self.exp_totalrecs_label,6,1)
         # Set default labels
         self.exp_date_label.setText('Date:')
         self.exp_recrate_label.setText('Recording Rate [MHz]:')
@@ -160,20 +155,17 @@ class AppForm(QMainWindow):
         self.seismogram_maxamplitude_label = QLabel(self)
         self.seismogram_timestamp_label = QLabel(self)
         # Add them to the right vbox
-        meta_right_vbox.addWidget(self.seismogram_recnum_label)
-        meta_right_vbox.addWidget(self.seismogram_syncvoltage_label)
-        meta_right_vbox.addWidget(self.seismogram_maxamplitude_label)
-        meta_right_vbox.addWidget(self.seismogram_timestamp_label)
+        meta_grid.addWidget(self.seismogram_recnum_label,1,2)
+        meta_grid.addWidget(self.seismogram_syncvoltage_label,2,2)
+        meta_grid.addWidget(self.seismogram_maxamplitude_label,3,2)
+        meta_grid.addWidget(self.seismogram_timestamp_label,4,2)
         # Set default labels
         self.seismogram_recnum_label.setText('Record Number: ')
         self.seismogram_syncvoltage_label.setText('Sync Voltage [V]: ')
         self.seismogram_maxamplitude_label.setText('Maximum Amplitude [V]: ')
         self.seismogram_timestamp_label.setText('Time Stamp: ')
         
-                
-
-        
-        return meta_hbox
+        return meta_grid
         
     def create_main_frame(self):
         self.main_frame = QWidget()
@@ -234,7 +226,7 @@ class AppForm(QMainWindow):
         options_hbox = QHBoxLayout()
         
         
-        meta_hbox = self.create_meta_box()
+        meta_grid = self.create_meta_box()
         
         # Plot options vbox
         plot_options_vbox = QVBoxLayout()
@@ -246,8 +238,8 @@ class AppForm(QMainWindow):
         plot_options_vbox.addWidget(self.show_points_cb)
         
         options_hbox.addLayout(plot_options_vbox)
-        options_hbox.addStretch(1)
-        options_hbox.addLayout(meta_hbox)
+        options_hbox.addStretch(5)
+        options_hbox.addLayout(meta_grid)
         
         central_vbox.addLayout(plot_vbox)
         central_vbox.addLayout(options_hbox)
@@ -391,8 +383,8 @@ class AppForm(QMainWindow):
 
     def update_seismogram_meta(self):
         seismogram = self.experiment.seismograms[str(self.loaded_list.currentItem().text())]
-        time_string = datetime.strptime(seismogam.timestamp, '%H:%M:%S')
-        self.seismogram_recnum_label.setText('Record Number: %d' seismogram.rec_number)
+        time_string = datetime.strftime(seismogram.timestamp, '%H:%M:%S')
+        self.seismogram_recnum_label.setText('Record Number: %d' %seismogram.rec_number)
         self.seismogram_syncvoltage_label.setText('Sync Voltage [V]: %.3f' %seismogram.sync_voltage)
         self.seismogram_maxamplitude_label.setText('Maximum Amplitude [V]: %.3f' %seismogram.maxamp)
         self.seismogram_timestamp_label.setText('Time Stamp: %s' %time_string)
