@@ -1,5 +1,5 @@
 """
-APP NOTES
+
 
 Many concepts modeled after: http://eli.thegreenplace.net/files/prog_code/qt_mpl_bars.py.txt
 """
@@ -113,9 +113,63 @@ class AppForm(QMainWindow):
         self.canvas.draw()
         
     def on_clear(self):
-        self.ax1.grid(self.grid_cb.isChecked())
         self.ax1.clear()
+        self.ax1.grid(self.grid_cb.isChecked())
         self.canvas.draw()
+        
+    def create_meta_box(self):
+        ### META BOX
+        # Make the boxes we'll use and do some initial setup
+        meta_left_vbox = QVBoxLayout()
+        meta_right_vbox = QVBoxLayout()
+        meta_hbox = QHBoxLayout()
+        meta_hbox.addLayout(meta_left_vbox)
+        meta_hbox.addSpacing(300)
+        meta_hbox.addLayout(meta_right_vbox)
+        meta_hbox.addSpacing(300)
+        
+        # Make the experiment meta label objects
+        self.exp_date_label = QLabel(self)
+        self.exp_recrate_label = QLabel(self)
+        self.exp_pulserate_label = QLabel(self)
+        self.exp_pretrigrecs_label = QLabel(self)
+        self.exp_posttrigrecs_label = QLabel(self)
+        self.exp_totalrecs_label = QLabel(self)
+        # Add them to the left vbox
+        meta_left_vbox.addWidget(self.exp_date_label)
+        meta_left_vbox.addWidget(self.exp_recrate_label)
+        meta_left_vbox.addWidget(self.exp_pulserate_label)
+        meta_left_vbox.addWidget(self.exp_pretrigrecs_label)
+        meta_left_vbox.addWidget(self.exp_posttrigrecs_label)
+        meta_left_vbox.addWidget(self.exp_totalrecs_label)
+        # Set default labels
+        self.exp_date_label.setText('Date:')
+        self.exp_recrate_label.setText('Recording Rate [MHz]:')
+        self.exp_pulserate_label.setText('Pulse Rate [pps]:')
+        self.exp_posttrigrecs_label.setText('Post-Trigger Samples:')
+        self.exp_pretrigrecs_label.setText('Pre-Trigger Samples:')
+        self.exp_totalrecs_label.setText('Total Samples:')
+        
+        # Make the seismogram meta label objects
+        self.seismogram_recnum_label = QLabel(self)
+        self.seismogram_syncvoltage_label = QLabel(self)
+        self.seismogram_maxamplitude_label = QLabel(self)
+        self.seismogram_timestamp_label = QLabel(self)
+        # Add them to the right vbox
+        meta_right_vbox.addWidget(self.seismogram_recnum_label)
+        meta_right_vbox.addWidget(self.seismogram_syncvoltage_label)
+        meta_right_vbox.addWidget(self.seismogram_maxamplitude_label)
+        meta_right_vbox.addWidget(self.seismogram_timestamp_label)
+        # Set default labels
+        self.seismogram_recnum_label.setText('Record Number: ')
+        self.seismogram_syncvoltage_label.setText('Sync Voltage: ')
+        self.seismogram_maxamplitude_label.setText('Maximum Amplitude: ')
+        self.seismogram_timestamp_label.setText('Time Stamp: ')
+        
+                
+
+        
+        return meta_hbox
         
     def create_main_frame(self):
         self.main_frame = QWidget()
@@ -153,11 +207,12 @@ class AppForm(QMainWindow):
         self.show_points_cb.setChecked(False)
         self.connect(self.show_points_cb, SIGNAL('stateChanged(int)'), self.points_show)
         
-        self.force_draw_button = QPushButton("&Force Draw")
-        self.connect(self.force_draw_button, SIGNAL('clicked()'), self.on_draw)
+        self.plot_multiple_button = QPushButton("&Plot Multiple")
+        #self.connect(self.force_draw_button, SIGNAL('clicked()'), self.on_force_draw)
         
         self.force_clear_button = QPushButton("&Force Clear")
-        
+        self.connect(self.force_clear_button, SIGNAL('clicked()'), self.on_clear)
+
         self.loaded_list.currentTextChanged.connect(self.draw_waveform)
         
         # Do layout with box sizers
@@ -174,9 +229,12 @@ class AppForm(QMainWindow):
         central_vbox = QVBoxLayout()
         options_hbox = QHBoxLayout()
         
+        
+        meta_hbox = self.create_meta_box()
+        
         # Plot options vbox
         plot_options_vbox = QVBoxLayout()
-        plot_options_vbox.addWidget(self.force_draw_button)
+        plot_options_vbox.addWidget(self.plot_multiple_button)
         plot_options_vbox.addWidget(self.force_clear_button)
         plot_options_vbox.addWidget(self.grid_cb)
         plot_options_vbox.addWidget(self.trigger_cb)
@@ -185,6 +243,7 @@ class AppForm(QMainWindow):
         
         options_hbox.addLayout(plot_options_vbox)
         options_hbox.addStretch(1)
+        options_hbox.addLayout(meta_hbox)
         
         central_vbox.addLayout(plot_vbox)
         central_vbox.addLayout(options_hbox)
@@ -313,9 +372,19 @@ class AppForm(QMainWindow):
             QListWidgetItem(item[1], self.loaded_list)
             
         self.experiment = experiment
+        
+        self.update_experiment_meta()
             
         return self.experiment
-    
+        
+    def update_experiment_meta(self):
+        string_date = self.experiment.date
+        self.exp_date_label.setText('Date: %s' %string_date)
+        self.exp_recrate_label.setText('Recording Rate [MHz]: %.2f' %(self.experiment.record_rate/1e6))
+        self.exp_pulserate_label.setText('Pulse Rate [pps]: %d' %self.experiment.trigger_rate)
+        self.exp_posttrigrecs_label.setText('Post-Trigger Samples: %d' %self.experiment.post_trig_recs)
+        self.exp_pretrigrecs_label.setText('Pre-Trigger Samples: %d' %self.experiment.pre_trig_recs)
+        self.exp_totalrecs_label.setText('Total Samples: %d' %self.experiment.total_recs) 
 
 class Seismogram:
     """
@@ -478,6 +547,8 @@ class SeismicExperiment:
             self.seismograms[f].set_file(self.seismic_path+f)
             timestr = self.date + ' ' + rec[1] + ' ' + rec[2]    
             self.seismograms[f].timestamp = datetime.strptime(timestr,'%m/%d/%Y %I:%M:%S %p')
+
+class SeismicProcessing:
             
     def CrossCorrelate(self,pattern):
         for seismogram in self.seismograms:
