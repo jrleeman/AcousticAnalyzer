@@ -15,6 +15,65 @@ from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
 from matplotlib.figure import Figure
 
+class PatternForm(QDialog):
+    def __init__(self,seismogram,parent=None):
+        QDialog.__init__(self, parent)
+        self.setWindowTitle('Pattern Picker')
+        self.create_main_frame()
+        self.seismogram=seismogram
+        self.on_draw()
+        self.draw_waveform()
+
+        
+    def create_main_frame(self):
+        self.main_frame = QWidget()
+        
+        #Create the plotting area
+        self.dpi = 100
+        self.fig = Figure((10.0,3.0), dpi=self.dpi)
+        self.canvas = FigureCanvas(self.fig)
+        self.canvas.setParent(self.main_frame)
+        self.ax1 = self.fig.add_subplot(111)
+        self.fig.subplots_adjust(bottom=0.2)
+        
+        # Bind the picker event
+        #self.canvas.mpl_connect('pick_event', self.on_pick)
+        
+        # Create and bind the toolbar for the plot
+        self.mpl_toolbar = NavigationToolbar(self.canvas, self.main_frame)
+        
+        
+        # Do layout with box sizers
+        plot_vbox = QVBoxLayout()
+        plot_vbox.addWidget(self.canvas)
+        plot_vbox.addWidget(self.mpl_toolbar)
+        
+        # Make the main box
+        main_box = QHBoxLayout()
+        main_box.addLayout(plot_vbox)
+        self.main_frame.setLayout(main_box)
+        
+    def on_draw(self):
+        #self.ax1.grid(self.grid_cb.isChecked())
+        self.canvas.draw()
+        
+    def draw_waveform(self):
+        print "Seismogram", self.seismogram
+        self.stored_xlimits = self.ax1.get_xlim()
+        self.stored_ylimits = self.ax1.get_ylim()
+        self.ax1.clear()
+        self.ax1.set_xlabel(r'Row')
+        self.ax1.set_ylabel(r'Amplitude [V]')
+        self.ax1.grid(True)
+        #seismogram = self.experiment.seismograms[str(self.loaded_list.currentItem().text())]
+        self.ax1.plot(self.seismogram.amplitude,color='k',linewidth=1)
+        
+
+        self.ax1.set_xlim(self.stored_xlimits)
+        self.ax1.set_ylim(self.stored_ylimits)
+            
+        self.canvas.draw()
+        
 class AppForm(QMainWindow):
 
     def __init__(self,parent=None):
@@ -165,6 +224,13 @@ class AppForm(QMainWindow):
         self.seismogram_maxamplitude_label.setText('Maximum Amplitude [V]: ')
         self.seismogram_timestamp_label.setText('Time Stamp: ')
         
+        
+        # Set Grid Stretches
+        meta_grid.setColumnStretch(0,1)
+        meta_grid.setColumnStretch(3,1)
+        meta_grid.setRowStretch(0, 1)
+        meta_grid.setRowStretch(3, 1)
+        
         return meta_grid
         
     def create_main_frame(self):
@@ -238,7 +304,7 @@ class AppForm(QMainWindow):
         plot_options_vbox.addWidget(self.show_points_cb)
         
         options_hbox.addLayout(plot_options_vbox)
-        options_hbox.addStretch(5)
+        #options_hbox.addStretch(5)
         options_hbox.addLayout(meta_grid)
         
         central_vbox.addLayout(plot_vbox)
@@ -299,7 +365,7 @@ class AppForm(QMainWindow):
         # Cross-Correlation Sub-Menu
         #
         self.analyze_menu = self.analyze_menu.addMenu("&Cross-Correlation")
-        pick_pattern_action = self.create_action("&Pick Pattern", shortcut="", slot=self.save_plot,tip="Pick the pattern used for cross-correlation")
+        pick_pattern_action = self.create_action("&Pick Pattern", shortcut="", slot=self.pattern_popup,tip="Pick the pattern used for cross-correlation")
         
         run_cross_correlation_action = self.create_action("&Run Cross-Correlation", shortcut="", slot=self.save_plot,tip="Run the Cross-Correlation Algorithm")
         
@@ -351,7 +417,7 @@ class AppForm(QMainWindow):
         log_file_name = QFileDialog.getOpenFileName(self,'Open Experiment - Select Log File')
         path = str(log_file_name)
         experiment.seismic_path = os.path.split(path)[0] + '/'
-        experiment.seismic_prefix = os.path.split(path)[1].strip('log.txt')
+        experiment.seismic_prefix = os.path.split(path)[1].split('log.txt')[0]
         experiment.ReadLogFile()
         experiment.ReadSeismograms()
         
@@ -389,6 +455,16 @@ class AppForm(QMainWindow):
         self.seismogram_maxamplitude_label.setText('Maximum Amplitude [V]: %.3f' %seismogram.maxamp)
         self.seismogram_timestamp_label.setText('Time Stamp: %s' %time_string)
 
+    def pattern_popup(self):
+        seismogram = self.experiment.seismograms[str(self.loaded_list.currentItem().text())]
+        self.dialog = PatternForm(seismogram)
+        
+        # For Modal dialogs
+        self.dialog.exec_()
+        #self.dialog.seismogram = seismogram
+        # Or for modeless dialogs
+        #self.dialog.show()
+
 class Seismogram:
     """
     Class to hold a seismogram and all the data pertaining 
@@ -411,7 +487,10 @@ class Seismogram:
         Used to read in seismogram.
         """
         self.filename    = fname # Set filename
-        self.rec_number = fname.split('rec')[1]
+        self.rec_number = self.filename.split('/')[-1]
+        self.rec_number = self.rec_number.split('rec')[1]
+        print self.rec_number
+        print int(self.rec_number.split('.')[0])
         self.rec_number = int(self.rec_number.split('.')[0])
         
         GoodRead = False
@@ -534,8 +613,8 @@ class SeismicExperiment:
             else:
                 print "ERROR: Unknown line encountered in log file."
 
-        self.time = np.arange(self.total_recs)/float(self.trigger_rate)
-        self.trigger_time = (self.pre_trig_recs) * (1/float(self.trigger_rate))
+        self.time = np.arange(self.total_recs)/float(self.record_rate)*1e6
+        self.trigger_time = (self.pre_trig_recs) * (1/float(self.record_rate))*1e6
 
     def ReadSeismograms(self):
         """
